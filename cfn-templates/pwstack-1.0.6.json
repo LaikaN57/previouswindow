@@ -1,0 +1,636 @@
+{
+    "Parameters": {
+        "inVPC": {
+            "Type": "String"
+        },
+        "inPCX": {
+            "Type": "String"
+        }
+    },
+    "Mappings": {
+        "RegionMap": {
+            "us-east-1": {
+                "ami": "ami-14c5486b",
+                "net": "172.16.0.0/16",
+                "trust": "172.16.0.0/24",
+                "prod": "172.16.64.0/24",
+                "stage": "172.16.128.0/24"
+            },
+            "us-east-2": {
+                "ami": "ami-922914f7",
+                "net": "172.24.0.0/16",
+                "trust": "172.24.0.0/24",
+                "prod": "172.24.64.0/24",
+                "stage": "172.24.128.0/24"
+            },
+            "us-west-1": {
+                "ami": "ami-25110f45",
+                "net": "172.16.0.0/16",
+                "trust": "172.16.0.0/24",
+                "prod": "172.16.64.0/24",
+                "stage": "172.16.128.0/24"
+            },
+            "us-west-2": {
+                "ami": "ami-e251209a",
+                "net": "172.24.0.0/16",
+                "trust": "172.24.0.0/24",
+                "prod": "172.24.64.0/24",
+                "stage": "172.24.128.0/24"
+            }
+        },
+        "invRegionMap": {
+            "us-east-1": {
+                "net": "172.24.0.0/16",
+                "trust": "172.24.0.0/24",
+                "prod": "172.24.64.0/24",
+                "stage": "172.24.128.0/24"
+            },
+            "us-east-2": {
+                "net": "172.16.0.0/16",
+                "trust": "172.16.0.0/24",
+                "prod": "172.16.64.0/24",
+                "stage": "172.16.128.0/24"
+            },
+            "us-west-1": {
+                "net": "172.24.0.0/16",
+                "trust": "172.24.0.0/24",
+                "prod": "172.24.64.0/24",
+                "stage": "172.24.128.0/24"
+            },
+            "us-west-2": {
+                "net": "172.16.0.0/16",
+                "trust": "172.16.0.0/24",
+                "prod": "172.16.64.0/24",
+                "stage": "172.16.128.0/24"
+            }
+        }
+    },
+    "Resources": {
+        "pwSubnetTrusted": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "trust"
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwSubnetProduction": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "prod"
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwSubnetStaging": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "stage"
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwIGW": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {}
+        },
+        "pwAttachVPCIGW": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "InternetGatewayId": {
+                    "Ref": "pwIGW"
+                },
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwRTB": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwRouteDefault": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "pwIGW"
+                },
+                "RouteTableId": {
+                    "Ref": "pwRTB"
+                }
+            },
+            "DependsOn" : "pwAttachVPCIGW"
+        },
+        "pwRoutePeer": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": {
+                    "Fn::FindInMap": [
+                        "invRegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "net"
+                    ]
+                },
+                "RouteTableId": {
+                    "Ref": "pwRTB"
+                },
+                "VpcPeeringConnectionId": {
+                    "Ref": "inPCX"
+                }
+            }
+        },
+        "pwAssociateSubnetTrustedRTB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "pwRTB"
+                },
+                "SubnetId": {
+                    "Ref": "pwSubnetTrusted"
+                }
+            }
+        },
+        "pwAssociateSubnetProductionRTB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "pwRTB"
+                },
+                "SubnetId": {
+                    "Ref": "pwSubnetProduction"
+                }
+            }
+        },
+        "pwAssociateSubnetStagingRTB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "pwRTB"
+                },
+                "SubnetId": {
+                    "Ref": "pwSubnetStaging"
+                }
+            }
+        },
+        "pwSGTrusted": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "pwSGTrusted",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwSGProduction": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "pwSGProduction",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "SourceSecurityGroupId": {
+                            "Ref": "pwSGTrusted"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "invRegionMap",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "trust"
+                            ]
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "invRegionMap",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "prod"
+                            ]
+                        }
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwSGStaging": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "pwSGStaging",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "SourceSecurityGroupId": {
+                            "Ref": "pwSGTrusted"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "invRegionMap",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "trust"
+                            ]
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "invRegionMap",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "stage"
+                            ]
+                        }
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "inVPC"
+                }
+            }
+        },
+        "pwInstanceBastion": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "ami"
+                    ]
+                },
+                "InstanceType": "t2.micro",
+                "KeyName": "pwKeyPair",
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "pwSGTrusted"
+                    }
+                ],
+                "SubnetId": {
+                    "Ref": "pwSubnetTrusted"
+                }
+            }
+        },
+        "pwInstanceProduction": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "packages": {
+                            "yum": {
+                                "httpd": [],
+                                "php": []
+                            }
+                        },
+                        "files": {
+                            "/var/www/html/index.php": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "<html>\n",
+                                            "  <head>\n",
+                                            "    <title>AWS CloudFormation PHP Sample</title>\n",
+                                            "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=ISO-8859-1\">\n",
+                                            "  </head>\n",
+                                            "  <body>\n",
+                                            "    <h1>Welcome to the AWS CloudFormation PHP Sample</h1>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      // Print out the current data and time\n",
+                                            "      print \"The Current Date and Time is: <br/>\";\n",
+                                            "      print date(\"g:i A l, F j Y.\");\n",
+                                            "    ?>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      // Setup a handle for CURL\n",
+                                            "      $curl_handle=curl_init();\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_CONNECTTIMEOUT,2);\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_RETURNTRANSFER,1);\n",
+                                            "      // Get the hostname of the instance from the instance metadata\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_URL,'http://169.254.169.254/latest/meta-data/public-hostname');\n",
+                                            "      $hostname = curl_exec($curl_handle);\n",
+                                            "      if (empty($hostname)) {\n",
+                                            "        print \"Sorry, for some reason, we got no hostname back <br />\";\n",
+                                            "      } else {\n",
+                                            "        print \"Server = \" . $hostname . \"<br />\";\n",
+                                            "      }\n",
+                                            "      // Get the instance-id of the instance from the instance metadata\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_URL,'http://169.254.169.254/latest/meta-data/instance-id');\n",
+                                            "      $instanceid = curl_exec($curl_handle);\n",
+                                            "      if (empty($instanceid)) {\n",
+                                            "        print \"Sorry, for some reason, we got no instance id back <br />\";\n",
+                                            "      } else {\n",
+                                            "        print \"EC2 instance-id = \" . $instanceid . \"<br />\";\n",
+                                            "      }\n",
+                                            "    ?>\n",
+                                            "    <h2>PHP Information</h2>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      phpinfo();\n",
+                                            "    ?>\n",
+                                            "  </body>\n",
+                                            "</html>\n"
+                                        ]
+                                    ]
+                                },
+                                "group": "apache",
+                                "owner": "apache",
+                                "mode": "000600"
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "httpd": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "ami"
+                    ]
+                },
+                "InstanceType": "t2.micro",
+                "KeyName": "pwKeyPair",
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "pwSGProduction"
+                    }
+                ],
+                "SubnetId": {
+                    "Ref": "pwSubnetProduction"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -xe\n",
+                                "yum install -y aws-cfn-bootstrap\n",
+                                "/opt/aws/bin/cfn-init -v -s ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                " -r pwInstanceProduction\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "pwInstanceStaging": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "packages": {
+                            "yum": {
+                                "httpd": [],
+                                "php": []
+                            }
+                        },
+                        "files": {
+                            "/var/www/html/index.php": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "<html>\n",
+                                            "  <head>\n",
+                                            "    <title>AWS CloudFormation PHP Sample</title>\n",
+                                            "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=ISO-8859-1\">\n",
+                                            "  </head>\n",
+                                            "  <body>\n",
+                                            "    <h1>Welcome to the AWS CloudFormation PHP Sample</h1>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      // Print out the current data and time\n",
+                                            "      print \"The Current Date and Time is: <br/>\";\n",
+                                            "      print date(\"g:i A l, F j Y.\");\n",
+                                            "    ?>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      // Setup a handle for CURL\n",
+                                            "      $curl_handle=curl_init();\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_CONNECTTIMEOUT,2);\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_RETURNTRANSFER,1);\n",
+                                            "      // Get the hostname of the instance from the instance metadata\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_URL,'http://169.254.169.254/latest/meta-data/public-hostname');\n",
+                                            "      $hostname = curl_exec($curl_handle);\n",
+                                            "      if (empty($hostname)) {\n",
+                                            "        print \"Sorry, for some reason, we got no hostname back <br />\";\n",
+                                            "      } else {\n",
+                                            "        print \"Server = \" . $hostname . \"<br />\";\n",
+                                            "      }\n",
+                                            "      // Get the instance-id of the instance from the instance metadata\n",
+                                            "      curl_setopt($curl_handle,CURLOPT_URL,'http://169.254.169.254/latest/meta-data/instance-id');\n",
+                                            "      $instanceid = curl_exec($curl_handle);\n",
+                                            "      if (empty($instanceid)) {\n",
+                                            "        print \"Sorry, for some reason, we got no instance id back <br />\";\n",
+                                            "      } else {\n",
+                                            "        print \"EC2 instance-id = \" . $instanceid . \"<br />\";\n",
+                                            "      }\n",
+                                            "    ?>\n",
+                                            "    <h2>PHP Information</h2>\n",
+                                            "    <p/>\n",
+                                            "    <?php\n",
+                                            "      phpinfo();\n",
+                                            "    ?>\n",
+                                            "  </body>\n",
+                                            "</html>\n"
+                                        ]
+                                    ]
+                                },
+                                "group": "apache",
+                                "owner": "apache",
+                                "mode": "000600"
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "httpd": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "ami"
+                    ]
+                },
+                "InstanceType": "t2.micro",
+                "KeyName": "pwKeyPair",
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "pwSGStaging"
+                    }
+                ],
+                "SubnetId": {
+                    "Ref": "pwSubnetStaging"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -xe\n",
+                                "yum install -y aws-cfn-bootstrap\n",
+                                "/opt/aws/bin/cfn-init -v -s ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                " -r pwInstanceStaging\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "BastionPubIP": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "pwInstanceBastion",
+                    "PublicIp"
+                ]
+            }
+        },
+        "ProdPrivIP": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "pwInstanceProduction",
+                    "PrivateIp"
+                ]
+            }
+        },
+        "ProdPubIP": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "pwInstanceProduction",
+                    "PublicIp"
+                ]
+            }
+        },
+        "StagePrivIP": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "pwInstanceStaging",
+                    "PrivateIp"
+                ]
+            }
+        },
+        "StagePubIP": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "pwInstanceStaging",
+                    "PublicIp"
+                ]
+            }
+        }
+    }
+}

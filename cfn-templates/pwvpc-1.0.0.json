@@ -1,0 +1,21 @@
+{
+    "Mappings": {
+        "RegionMap": {
+            "us-east-1": { "CidrBlock": "172.16.0.0/16" },
+            "us-east-2": { "CidrBlock": "172.24.0.0/16" },
+            "us-west-1": { "CidrBlock": "172.16.0.0/16" },
+            "us-west-2": { "CidrBlock": "172.24.0.0/16" }
+        }
+    },
+    "Resources": {
+        "pwVPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {"Fn::FindInMap":[ "RegionMap", {"Ref": "AWS::Region"}, "CidrBlock" ]}
+            }
+        }
+    },
+    "Outputs": {
+        "pwVPCID": { "Value": {"Ref": "pwVPC"} }
+    }
+}
