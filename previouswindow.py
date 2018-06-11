@@ -29,12 +29,12 @@ cfn_or = boto3.client('cloudformation', region_name='us-west-2',
 print('Creating VPC Stacks with CloudFormation...')
 cfn_ca.create_stack(
     StackName='pwStackVPCCA',
-    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow/pwvpc-1.0.0.json'
+    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow-releases/pwvpc-1.0.0.json'
 )
 
 cfn_or.create_stack(
     StackName='pwStackVPCOR',
-    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow/pwvpc-1.0.0.json'
+    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow-releases/pwvpc-1.0.0.json'
 )
 
 # wait for stack create
@@ -158,7 +158,7 @@ ec2_or.get_waiter('key_pair_exists').wait(
 print('Deploying CloudFormtion Stacks...')
 cfn_ca.create_stack(
     StackName='pwStackCA',
-    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow/pwstack-1.0.6.json',
+    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow-releases/pwstack-1.0.6.json',
     Parameters=[
         {
             'ParameterKey': 'inVPC',
@@ -173,7 +173,7 @@ cfn_ca.create_stack(
 
 cfn_or.create_stack(
     StackName='pwStackOR',
-    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow/pwstack-1.0.6.json',
+    TemplateURL='https://s3-us-west-1.amazonaws.com/previouswindow-releases/pwstack-1.0.6.json',
     Parameters=[
         {
             'ParameterKey': 'inVPC',
